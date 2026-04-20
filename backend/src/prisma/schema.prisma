@@ -1,0 +1,34 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model ReporterToken {
+  id           String          @id @default(cuid())
+  token        String          @unique
+  reporterName String
+  resolution   String          // e.g. "1280x720"
+  bitrate      Int             // in kbps
+  fps          Int
+  status       String          @default("ACTIVE") // ACTIVE | USED | EXPIRED | REVOKED
+  createdAt    DateTime        @default(now())
+  expiresAt    DateTime
+  usedAt       DateTime?
+  streamId     String?         // unique SRT streamid assigned on connect
+  createdBy    String
+  sessions     StreamSession[]
+}
+
+model StreamSession {
+  id        String        @id @default(cuid())
+  tokenId   String
+  token     ReporterToken @relation(fields: [tokenId], references: [id])
+  startedAt DateTime      @default(now())
+  endedAt   DateTime?
+  bytesSent BigInt        @default(0)
+  ffmpegPid Int?
+}
