@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import { generateStreamId } from '../lib/tokenService';
 import url from 'url';
+import { getAppConfig } from '../config';
 
 const prisma = new PrismaClient();
 
@@ -52,8 +53,8 @@ export async function handleSrtBridge(ws: WebSocket, req: IncomingMessage) {
     });
 
     // 5. Build SRT URL pointing at YOUR existing SRT server
-    const srtHost = process.env.SRT_SERVER_HOST!;
-    const srtPort = process.env.SRT_SERVER_PORT || '9998';
+    const srtHost = getAppConfig().SRT_SERVER_HOST!;
+    const srtPort = getAppConfig().SRT_SERVER_PORT || '9998';
     const srtLatency = process.env.SRT_LATENCY_MS || '200';
     const srtUrl = `srt://${srtHost}:${srtPort}?streamid=${streamId}&latency=${srtLatency}&mode=caller`;
 

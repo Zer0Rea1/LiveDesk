@@ -1,5 +1,7 @@
 import express from 'express';
 import http from 'http';
+import https from 'https';
+import fs from 'fs';
 import WebSocket from 'ws';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -8,15 +10,27 @@ import { authRouter } from './routes/auth';
 import { tokensRouter } from './routes/tokens';
 import { handleSrtBridge } from './ws/srtBridge';
 import path from 'path';
+import { getAppConfig } from './config';
 const app = express();
-const server = http.createServer(app);
+const sslOptions = {
+    key: fs.readFileSync('./key.pem'),
+    cert: fs.readFileSync('./cert.pem'),
+};
+const server = https.createServer(sslOptions, app);
 console.log(process.env.CORS_ORIGIN)
 // WebSocket server on /stream — reporters connect here
 const wss = new WebSocket.Server({ server, path: '/stream' });
 
+
+
 // Middleware
-app.use(helmet());
-app.use(cors({ origin: process.env.CORS_ORIGIN }));
+app.use(helmet({
+    hsts: false,
+    contentSecurityPolicy: false,  // disable entirely
+}));
+app.use(cors({
+    origin: '*'  // temporary — allow all for testing
+}));
 app.use(express.json());
 app.use(morgan('combined'));
 
@@ -29,7 +43,7 @@ app.get('/health', (_req, res) => {
     res.json({
         status: 'ok',
         time: new Date(),
-        srtTarget: `srt://${process.env.SRT_SERVER_HOST}:${process.env.SRT_SERVER_PORT}`,
+        srtTarget: `srt://${getAppConfig().SRT_SERVER_HOST}:${getAppConfig().SRT_SERVER_PORT}`,
     });
 });
 
@@ -49,5 +63,5 @@ const PORT = parseInt(process.env.PORT || '3000');
 server.listen(PORT, () => {
     console.log(`[Server] Running on port ${PORT}`);
     console.log(`[Server] WebSocket bridge: ws://localhost:${PORT}/stream`);
-    console.log(`[Server] SRT target: srt://${process.env.SRT_SERVER_HOST}:${process.env.SRT_SERVER_PORT}`);
+    console.log(`[Server] SRT target: srt://${getAppConfig().SRT_SERVER_HOST}:${getAppConfig().SRT_SERVER_PORT}`);
 });

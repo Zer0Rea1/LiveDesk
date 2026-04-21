@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import { adminAuth } from '../middleware/adminAuth';
+import { getAppConfig } from '../config';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -51,7 +52,7 @@ router.post('/generate', adminAuth, async (req: Request, res: Response): Promise
         bitrate,
         fps,
         expiresAt,
-        url: `${process.env.REPORTER_BASE_URL}/live?token=${tokenString}`,
+        url: `${getAppConfig().REPORTER_BASE_URL}/live?token=${tokenString}`,
     });
 });
 

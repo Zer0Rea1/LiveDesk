@@ -20,3 +20,9 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+*.pem
+dev.db
+*.db-journal
+
+./docs
