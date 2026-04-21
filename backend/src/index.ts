@@ -7,7 +7,7 @@ import morgan from 'morgan';
 import { authRouter } from './routes/auth';
 import { tokensRouter } from './routes/tokens';
 import { handleSrtBridge } from './ws/srtBridge';
-
+import path from 'path';
 const app = express();
 const server = http.createServer(app);
 console.log(process.env.CORS_ORIGIN)
@@ -32,6 +32,15 @@ app.get('/health', (_req, res) => {
         srtTarget: `srt://${process.env.SRT_SERVER_HOST}:${process.env.SRT_SERVER_PORT}`,
     });
 });
+
+
+app.use(express.static(path.join(__dirname, '../../frontend/dist')));
+
+// Catch-all: send index.html for any unknown route (handles React Router)
+app.get('/{*path}', (_req, res) => {
+    res.sendFile(path.join(__dirname, '../../frontend/dist/index.html'));
+});
+
 
 // WebSocket → FFmpeg → SRT bridge
 wss.on('connection', handleSrtBridge);
