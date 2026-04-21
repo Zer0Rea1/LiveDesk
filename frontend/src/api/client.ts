@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const api = axios.create({ baseURL: '/api' });
+const api = axios.create({ baseURL: 'https://cdn.96newshd.com:3000/api' });
 
 // Attach admin JWT to every request
 api.interceptors.request.use((config) => {
