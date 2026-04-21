@@ -126,6 +126,7 @@ export default function GenerateToken() {
                     </div>
                 </div>
             )}
+            <div style={{ color: '#888', fontSize: '13px', marginBottom: '28px' }}>Made with love By <a href="https://notrana.is-a.dev/">Asad</a></div>
         </div>
     );
 }

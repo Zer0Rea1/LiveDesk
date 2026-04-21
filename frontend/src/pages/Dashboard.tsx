@@ -52,6 +52,7 @@ export default function Dashboard() {
                     {tokens.length === 0 && <p style={{ color: '#888', fontSize: '14px' }}>No tokens yet. Generate one first.</p>}
                 </div>
             )}
+            <div style={{ color: '#888', fontSize: '13px', marginBottom: '28px' }}>Made with love By <a href="https://notrana.is-a.dev/">Asad</a></div>
         </div>
     );
 }
@@ -81,6 +82,7 @@ function TokenRow({ token, onRevoke }: { token: TokenRecord; onRevoke: () => voi
                     <button onClick={onRevoke} style={{ ...smallBtn, borderColor: '#E24B4A', color: '#E24B4A' }}>Revoke</button>
                 )}
             </div>
+
         </div>
     );
 }

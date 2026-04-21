@@ -49,6 +49,7 @@ export default function LoginPage() {
                     {loading ? 'Logging in...' : 'Login'}
                 </button>
             </form>
+            <div style={{ color: '#888', fontSize: '13px', marginBottom: '28px' }}>Made with love By <a href="https://notrana.is-a.dev/">Asad</a></div>
         </div>
     );
 }
