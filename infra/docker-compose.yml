@@ -32,7 +32,7 @@ services:
       SRT_SERVER_PORT: ${SRT_SERVER_PORT}
       SRT_LATENCY_MS: ${SRT_LATENCY_MS:-200}
       PORT: 3000
-      CORS_ORIGIN: https://admin.yourdomain.com
+      CORS_ORIGIN: https://yourdomain.com
       REPORTER_BASE_URL: https://yourdomain.com
     depends_on:
       db:
@@ -44,10 +44,10 @@ services:
       - external
     restart: unless-stopped
 
-  # Admin React frontend (pre-built static files served by nginx inside container)
-  admin-frontend:
+  # Unified React frontend (admin + reporter) served by nginx
+  frontend:
     build:
-      context: ../frontend-admin
+      context: ../frontend
       dockerfile: Dockerfile
     networks:
       - external
@@ -64,7 +64,7 @@ services:
       - "443:443"
     depends_on:
       - backend
-      - admin-frontend
+      - frontend
     networks:
       - external
     restart: unless-stopped

@@ -13,11 +13,11 @@ authRouter.post('/login', async (req: Request, res: Response): Promise<any> => {
         return res.status(400).json({ error: 'Password required' });
     }
 
-    console.log(password)
     const hash = process.env.ADMIN_PASSWORD_HASH!;
     console.log(hash)
     const valid = await bcrypt.compare(password, hash);
-
+    console.log(valid)
+    console.log(password)
     if (!valid) {
         return res.status(401).json({ error: 'Invalid password' });
     }

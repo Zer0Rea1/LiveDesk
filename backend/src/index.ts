@@ -4,7 +4,6 @@ import WebSocket from 'ws';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import path from 'path';
 import { authRouter } from './routes/auth';
 import { tokensRouter } from './routes/tokens';
 import { handleSrtBridge } from './ws/srtBridge';
@@ -24,12 +23,6 @@ app.use(morgan('combined'));
 // REST routes
 app.use('/api/auth', authRouter);
 app.use('/api/tokens', tokensRouter);
-
-// Serve reporter React app at /live?token=...
-app.use('/live', express.static(path.join(__dirname, '../../frontend-reporter/dist')));
-app.get('/live/{*splat}', (_req, res) => {
-    res.sendFile(path.join(__dirname, '../../frontend-reporter/dist/index.html'));
-});
 
 // Health check — also reports active stream count
 app.get('/health', (_req, res) => {
