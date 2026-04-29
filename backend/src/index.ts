@@ -13,8 +13,8 @@ import path from 'path';
 import { getAppConfig } from './config';
 const app = express();
 const sslOptions = {
-    key: fs.readFileSync('./key.pem'),
-    cert: fs.readFileSync('./cert.pem'),
+    key: fs.readFileSync('./certs/key.pem'),
+    cert: fs.readFileSync('./certs/cert.pem'),
 };
 const server = https.createServer(sslOptions, app);
 console.log(process.env.CORS_ORIGIN)

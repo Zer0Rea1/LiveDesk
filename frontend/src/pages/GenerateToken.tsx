@@ -21,6 +21,7 @@ export default function GenerateToken() {
     });
     const [generated, setGenerated] = useState<TokenRecord | null>(null);
     const [copied, setCopied] = useState(false);
+    const [isShortening, setIsShortening] = useState(false);
 
     const mutation = useMutation({
         mutationFn: tokensApi.generate,
@@ -31,14 +32,22 @@ export default function GenerateToken() {
         setForm(f => ({ ...f, resolution: preset.resolution, bitrate: preset.bitrate, fps: preset.fps }));
     }
 
-    function copyUrl() {
+    const copyUrl = async () => {
         if (generated) {
-            navigator.clipboard.writeText(generated.url);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
+            setIsShortening(true);
+            try {
+                const fullUrl = `${window.location.origin}${generated.url}`;
+                const res = await tokensApi.shortenUrl(fullUrl);
+                await navigator.clipboard.writeText(res.data.shortUrl);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            } catch (err) {
+                console.error("Failed to shorten url", err);
+            } finally {
+                setIsShortening(false);
+            }
         }
-    }
-
+    };
     return (
         <div style={{ maxWidth: '720px' }}>
             <h1 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '4px' }}>Generate Reporter Link</h1>
@@ -116,10 +125,10 @@ export default function GenerateToken() {
                         Reporter Link — Send this to {generated.reporterName}
                     </div>
                     <div style={{ fontFamily: 'monospace', fontSize: '12px', color: '#60a5fa', wordBreak: 'break-all', marginBottom: '14px' }}>
-                        {generated.url}
+                        {window.location.origin + generated.url}
                     </div>
-                    <button onClick={copyUrl} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #60a5fa', color: '#60a5fa', borderRadius: '6px', cursor: 'pointer', fontSize: '13px' }}>
-                        {copied ? 'Copied!' : 'Copy Link'}
+                    <button onClick={copyUrl} disabled={isShortening} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #60a5fa', color: '#60a5fa', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', opacity: isShortening ? 0.5 : 1 }}>
+                        {isShortening ? 'Shortening...' : copied ? 'Copied!' : 'Copy Link'}
                     </button>
                     <div style={{ marginTop: '12px', fontSize: '12px', color: '#888' }}>
                         Expires: {new Date(generated.expiresAt).toLocaleString()} · {generated.resolution} · {generated.bitrate} kbps · {generated.fps} fps

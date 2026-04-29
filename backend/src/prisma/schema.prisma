@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  url      = "file:dev.db"
 }
 
 model ReporterToken {
@@ -14,7 +14,7 @@ model ReporterToken {
   resolution   String          // e.g. "1280x720"
   bitrate      Int             // in kbps
   fps          Int
-  status       String          @default("ACTIVE") // ACTIVE | USED | EXPIRED | REVOKED
+  status       String          @default("ACTIVE") // ACTIVE | EXPIRED | REVOKED
   createdAt    DateTime        @default(now())
   expiresAt    DateTime
   usedAt       DateTime?

@@ -163,7 +163,7 @@ export default function ReporterApp() {
       </div>
 
       <div className="footer-note">
-        Stream is encrypted end-to-end via SRT. This link is one-time use only.
+        Stream is encrypted end-to-end via SRT. This link can be reused until it expires. Do not share.
       </div>
     </div>
   );

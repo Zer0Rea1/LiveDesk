@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import { adminAuth } from '../middleware/adminAuth';
 import { getAppConfig } from '../config';
+import { getActiveStreamTokens, getActiveStreams } from '../ws/srtBridge';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -52,7 +53,33 @@ router.post('/generate', adminAuth, async (req: Request, res: Response): Promise
         bitrate,
         fps,
         expiresAt,
-        url: `${getAppConfig().REPORTER_BASE_URL}/live?token=${tokenString}`,
+        url: `/live?token=${tokenString}`,
+    });
+});
+
+// POST /api/tokens/shorten
+// Accepts a full url (built on the frontend from window.location.origin) and returns a TinyURL short link.
+router.post('/shorten', adminAuth, async (req: Request, res: Response): Promise<any> => {
+    const { url } = req.body;
+    if (!url) return res.status(400).json({ error: 'Missing url' });
+
+    try {
+        const response = await fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(url)}`);
+        const shortUrl = await response.text();
+        if (!shortUrl.startsWith('https://')) {
+            return res.status(502).json({ error: 'TinyURL error: ' + shortUrl });
+        }
+        res.json({ shortUrl });
+    } catch (e: any) {
+        res.status(500).json({ error: 'Failed to shorten URL: ' + e.message });
+    }
+});
+
+// GET /api/tokens/active — returns rich info on currently live streams
+router.get('/active', adminAuth, (_req, res) => {
+    res.json({
+        activeTokens: getActiveStreamTokens(),
+        streams: getActiveStreams(),
     });
 });
 
@@ -67,6 +94,7 @@ router.get('/', adminAuth, async (_req, res) => {
     const result = tokens.map(t => ({
         ...t,
         status: t.status === 'ACTIVE' && t.expiresAt < now ? 'EXPIRED' : t.status,
+        url: `/live?token=${t.token}`,
     }));
 
     res.json(result);
@@ -92,7 +120,6 @@ router.post('/validate', async (req: Request, res: Response): Promise<any> => {
 
         if (!dbToken) return res.json({ valid: false, error: 'Token not found' });
         if (dbToken.status === 'REVOKED') return res.json({ valid: false, error: 'Token revoked' });
-        if (dbToken.status === 'USED') return res.json({ valid: false, error: 'Token already used' });
         if (dbToken.expiresAt < new Date()) return res.json({ valid: false, error: 'Token expired' });
 
         res.json({

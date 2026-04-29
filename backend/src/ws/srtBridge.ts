@@ -9,8 +9,18 @@ import { getAppConfig } from '../config';
 
 const prisma = new PrismaClient();
 
-// One FFmpeg process per active stream
-const activeStreams = new Map<string, ChildProcess>();
+interface ActiveStream {
+    ffmpeg: ChildProcess;
+    reporterName: string;
+    streamId: string;
+    resolution: string;
+    bitrate: number;
+    fps: number;
+    startedAt: Date;
+}
+
+// One FFmpeg process per active stream, keyed by token string
+const activeStreams = new Map<string, ActiveStream>();
 
 export async function handleSrtBridge(ws: WebSocket, req: IncomingMessage) {
     const query = url.parse(req.url || '', true).query;
@@ -19,6 +29,12 @@ export async function handleSrtBridge(ws: WebSocket, req: IncomingMessage) {
     if (!token) {
         ws.send(JSON.stringify({ type: 'error', message: 'No token' }));
         ws.close(1008, 'No token');
+        return;
+    }
+
+    if (activeStreams.has(token)) {
+        ws.send(JSON.stringify({ type: 'error', message: 'This token is already streaming.' }));
+        ws.close(1008, 'Token in use');
         return;
     }
 
@@ -32,19 +48,19 @@ export async function handleSrtBridge(ws: WebSocket, req: IncomingMessage) {
         return;
     }
 
-    // 2. Check DB — one-time use enforcement
+    // 2. Check DB — expiry or revoked check
     const dbToken = await prisma.reporterToken.findUnique({ where: { token } });
     if (!dbToken || dbToken.status !== 'ACTIVE' || dbToken.expiresAt < new Date()) {
-        ws.send(JSON.stringify({ type: 'error', message: 'Token not valid or already used' }));
+        ws.send(JSON.stringify({ type: 'error', message: 'Token not valid or expired' }));
         ws.close(1008, 'Token invalid');
         return;
     }
 
-    // 3. Mark USED immediately so no second connection can use this token
+    // 3. Mark last used time
     const streamId = generateStreamId(payload.reporterName);
     await prisma.reporterToken.update({
         where: { token },
-        data: { status: 'USED', usedAt: new Date(), streamId },
+        data: { usedAt: new Date(), streamId },
     });
 
     // 4. Log session start
@@ -91,7 +107,15 @@ export async function handleSrtBridge(ws: WebSocket, req: IncomingMessage) {
         srtUrl,
     ]);
 
-    activeStreams.set(token, ffmpeg);
+    activeStreams.set(token, {
+        ffmpeg,
+        reporterName: payload.reporterName,
+        streamId,
+        resolution: payload.resolution,
+        bitrate: payload.bitrate,
+        fps: payload.fps,
+        startedAt: new Date(),
+    });
 
     ffmpeg.stderr.on('data', (data: Buffer) => {
         // FFmpeg writes progress to stderr — log first 200 chars to avoid spam
@@ -144,4 +168,30 @@ export async function handleSrtBridge(ws: WebSocket, req: IncomingMessage) {
 
 export function getActiveStreamCount(): number {
     return activeStreams.size;
+}
+
+export function getActiveStreamTokens(): string[] {
+    return Array.from(activeStreams.keys());
+}
+
+export interface ActiveStreamInfo {
+    token: string;
+    reporterName: string;
+    streamId: string;
+    resolution: string;
+    bitrate: number;
+    fps: number;
+    startedAt: Date;
+}
+
+export function getActiveStreams(): ActiveStreamInfo[] {
+    return Array.from(activeStreams.entries()).map(([token, s]) => ({
+        token,
+        reporterName: s.reporterName,
+        streamId: s.streamId,
+        resolution: s.resolution,
+        bitrate: s.bitrate,
+        fps: s.fps,
+        startedAt: s.startedAt,
+    }));
 }

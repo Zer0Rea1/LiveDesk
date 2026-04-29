@@ -36,6 +36,10 @@ export const tokensApi = {
         api.get<TokenRecord[]>('/tokens'),
     revoke: (id: string) =>
         api.delete(`/tokens/${id}`),
+    shortenUrl: (url: string) =>
+        api.post<{ shortUrl: string }>('/tokens/shorten', { url }),
+    listActive: () =>
+        api.get<{ activeTokens: string[]; streams: ActiveStreamInfo[] }>('/tokens/active'),
 };
 
 export interface GenerateTokenPayload {
@@ -59,4 +63,14 @@ export interface TokenRecord {
     expiresAt: string;
     usedAt?: string;
     url: string;
+}
+
+export interface ActiveStreamInfo {
+    token: string;
+    reporterName: string;
+    streamId: string;
+    resolution: string;
+    bitrate: number;
+    fps: number;
+    startedAt: string;
 }
