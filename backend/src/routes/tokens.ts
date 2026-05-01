@@ -91,7 +91,7 @@ router.get('/', adminAuth, async (_req, res) => {
     });
 
     const now = new Date();
-    const result = tokens.map(t => ({
+    const result = tokens.map((t: any) => ({
         ...t,
         status: t.status === 'ACTIVE' && t.expiresAt < now ? 'EXPIRED' : t.status,
         url: `/live?token=${t.token}`,

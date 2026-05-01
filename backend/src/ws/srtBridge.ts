@@ -1,6 +1,8 @@
 import WebSocket from 'ws';
 import { IncomingMessage } from 'http';
 import { spawn, ChildProcess } from 'child_process';
+import fs from 'fs';
+import path from 'path';
 import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import { generateStreamId } from '../lib/tokenService';
@@ -79,14 +81,19 @@ export async function handleSrtBridge(ws: WebSocket, req: IncomingMessage) {
 
     console.log(`[Bridge] ${payload.reporterName} → ${srtUrl} (${resolution} ${bitrate}kbps ${fps}fps)`);
 
-    // 6. Spawn FFmpeg — reads WebM from stdin, pushes SRT to your server
+    // HLS Directory setup
+    const HLS_DIR = process.env.HLS_OUTPUT_DIR || path.join(process.cwd(), 'hls_output');
+    const hlsPath = path.join(HLS_DIR, streamId);
+    fs.mkdirSync(hlsPath, { recursive: true });
+
+    // 6. Spawn FFmpeg — reads WebM from stdin, pushes SRT to your server AND generates HLS locally
     const ffmpeg = spawn('ffmpeg', [
         // Input: piped WebM from browser MediaRecorder
         '-fflags', 'nobuffer',
         '-flags', 'low_delay',
         '-i', 'pipe:0',
 
-        // Video: re-encode to H.264 (required for SRT/MPEG-TS broadcast)
+        // ── Output 1: SRT → your existing server ──
         '-c:v', 'libx264',
         '-preset', 'ultrafast',       // lowest latency encoding
         '-tune', 'zerolatency',       // no B-frames, minimise buffering
@@ -96,15 +103,29 @@ export async function handleSrtBridge(ws: WebSocket, req: IncomingMessage) {
         '-vf', `scale=${width}:${height}`,
         '-r', `${fps}`,
         '-g', `${parseInt(fps) * 2}`, // keyframe every 2 seconds
-
-        // Audio: re-encode to AAC
         '-c:a', 'aac',
         '-b:a', '128k',
         '-ar', '44100',
-
-        // Output: MPEG-TS container over SRT to your server
         '-f', 'mpegts',
         srtUrl,
+
+        // ── Output 2: HLS → local folder for dashboard playback ──
+        '-c:v', 'libx264',
+        '-preset', 'ultrafast',
+        '-tune', 'zerolatency',
+        '-b:v', `${Math.round(bitrate * 0.6)}k`,  // slightly lower bitrate for HLS
+        '-vf', `scale=${width}:${height}`,
+        '-r', `${fps}`,
+        '-g', `${parseInt(fps) * 2}`,
+        '-c:a', 'aac',
+        '-b:a', '96k',
+        '-ar', '44100',
+        '-f', 'hls',
+        '-hls_time', '2',                          // 2-second segments
+        '-hls_list_size', '6',                     // keep last 6 segments
+        '-hls_flags', 'delete_segments+append_list',
+        '-hls_segment_filename', path.join(hlsPath, 'seg%03d.ts'),
+        path.join(hlsPath, 'index.m3u8'),
     ]);
 
     activeStreams.set(token, {
@@ -158,6 +179,11 @@ export async function handleSrtBridge(ws: WebSocket, req: IncomingMessage) {
             where: { id: session.id },
             data: { endedAt: new Date(), bytesSent: BigInt(bytesSent) },
         }).catch(() => { });
+
+        // Cleanup HLS files after 10s delay to let trailing clients finish playing
+        setTimeout(() => {
+            fs.rmSync(hlsPath, { recursive: true, force: true });
+        }, 10000);
     });
 
     ws.on('error', (err) => {

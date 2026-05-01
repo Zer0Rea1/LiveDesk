@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { tokensApi } from '../api/client';
 import type { TokenRecord, ActiveStreamInfo } from '../api/client';
 import { formatDistanceToNow, formatDistance } from 'date-fns';
+import Hls from 'hls.js';
 
 const STATUS_COLOR: Record<string, string> = {
     ACTIVE: '#22c55e',
@@ -140,12 +141,57 @@ export default function Dashboard() {
                             ))}
                         </div>
 
-                        <div style={{ background: 'rgba(96,165,250,0.05)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: '8px', padding: '12px 14px', fontSize: '12px', color: '#60a5fa', lineHeight: '1.6' }}>
-                            <strong>To watch this stream</strong>, open it in VLC or your SRT-capable player using the stream ID above on your SRT server. Browser-based playback requires an HLS relay (not yet configured).
+                        <div style={{ background: 'rgba(96,165,250,0.05)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: '8px', overflow: 'hidden' }}>
+                            <HlsPlayer streamId={watchStream.streamId} />
                         </div>
                     </div>
                 </div>
             )}
+        </div>
+    );
+}
+
+function HlsPlayer({ streamId }: { streamId: string }) {
+    const videoRef = useRef<HTMLVideoElement>(null);
+
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return;
+
+        const hlsUrl = `/hls/${streamId}/index.m3u8`;
+
+        if (Hls.isSupported()) {
+            const hls = new Hls({
+                liveSyncDurationCount: 3,
+                maxMaxBufferLength: 10,
+            });
+            hls.loadSource(hlsUrl);
+            hls.attachMedia(video);
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                video.play().catch(e => console.error('Play failed:', e));
+            });
+
+            return () => {
+                hls.destroy();
+            };
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            // Safari fallback
+            video.src = hlsUrl;
+            video.addEventListener('loadedmetadata', () => {
+                video.play().catch(e => console.error('Play failed:', e));
+            });
+        }
+    }, [streamId]);
+
+    return (
+        <div style={{ width: '100%', aspectRatio: '16/9', background: '#000' }}>
+            <video
+                ref={videoRef}
+                controls
+                autoPlay
+                muted
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            />
         </div>
     );
 }

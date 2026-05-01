@@ -38,6 +38,14 @@ app.use(morgan('combined'));
 app.use('/api/auth', authRouter);
 app.use('/api/tokens', tokensRouter);
 
+// Serve HLS segments with correct CORS headers for browser playback
+const HLS_DIR = process.env.HLS_OUTPUT_DIR || path.join(process.cwd(), 'hls_output');
+app.use('/hls', (req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Cache-Control', 'no-cache');
+    next();
+}, express.static(HLS_DIR));
+
 // Health check — also reports active stream count
 app.get('/health', (_req, res) => {
     res.json({
