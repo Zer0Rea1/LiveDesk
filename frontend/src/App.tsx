@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import LoginPage from './pages/LoginPage';
 import Dashboard from './pages/Dashboard';
 import GenerateToken from './pages/GenerateToken';
+import Monitors from './pages/Monitors';
 import LivePage from './pages/LivePage';
 import Layout from './components/Layout';
 
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
             <Route index element={<Dashboard />} />
             <Route path="generate" element={<GenerateToken />} />
+            <Route path="monitors" element={<Monitors />} />
           </Route>
         </Routes>
       </BrowserRouter>

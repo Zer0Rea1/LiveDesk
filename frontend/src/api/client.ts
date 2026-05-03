@@ -40,6 +40,8 @@ export const tokensApi = {
         api.post<{ shortUrl: string }>('/tokens/shorten', { url }),
     listActive: () =>
         api.get<{ activeTokens: string[]; streams: ActiveStreamInfo[] }>('/tokens/active'),
+    stopStream: (streamId: string) =>
+        api.post<{ success: boolean }>('/tokens/stop-stream', { streamId }),
 };
 
 export interface GenerateTokenPayload {

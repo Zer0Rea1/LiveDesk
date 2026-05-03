@@ -35,6 +35,14 @@ export default function Dashboard() {
         onSuccess: () => qc.invalidateQueries({ queryKey: ['tokens'] }),
     });
 
+    const stopStream = useMutation({
+        mutationFn: (streamId: string) => tokensApi.stopStream(streamId),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: ['activeTokens'] });
+            qc.invalidateQueries({ queryKey: ['tokens'] });
+        },
+    });
+
     const counts = {
         active: tokens.filter(t => t.status === 'ACTIVE').length,
         live: activeSet.size,
@@ -43,41 +51,50 @@ export default function Dashboard() {
 
     return (
         <div>
-            <h1 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '20px' }}>Token Dashboard</h1>
+            <h1 className="dash-title">Dashboard</h1>
 
             {/* Stats */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '28px' }}>
-                {[['Active', counts.active, '#22c55e'], ['Live Now', counts.live, '#E24B4A'], ['Total', counts.total, '#60a5fa']].map(([label, val, color]) => (
-                    <div key={label as string} style={{ background: '#1a1a1a', border: '1px solid #222', borderRadius: '10px', padding: '16px' }}>
-                        <div style={{ fontSize: '11px', color: '#888', marginBottom: '6px' }}>{label}</div>
-                        <div style={{ fontSize: '28px', fontWeight: '700', color: color as string }}>{val}</div>
-                    </div>
-                ))}
+            <div className="stats-grid">
+                <div className="stat-card">
+                    <div className="stat-label">Active Tokens</div>
+                    <div className="stat-number" style={{ color: '#22c55e' }}>{counts.active}</div>
+                </div>
+                <div className="stat-card">
+                    <div className="stat-label">Live Now</div>
+                    <div className="stat-number" style={{ color: '#e24b4a' }}>{counts.live}</div>
+                </div>
+                <div className="stat-card">
+                    <div className="stat-label">Total Tokens</div>
+                    <div className="stat-number" style={{ color: '#60a5fa' }}>{counts.total}</div>
+                </div>
             </div>
 
-            {/* Active Streams Panel */}
+            {/* Active Streams */}
             {streams.length > 0 && (
-                <div style={{ marginBottom: '24px', background: 'rgba(226,75,74,0.05)', border: '1px solid rgba(226,75,74,0.25)', borderRadius: '10px', padding: '16px' }}>
-                    <div style={{ fontSize: '11px', color: '#E24B4A', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '12px', fontWeight: '600' }}>
-                        ● Live Streams
+                <div className="live-panel">
+                    <div className="live-panel-header">
+                        <span className="pulse-dot" /> Live Streams
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div className="stream-cards">
                         {streams.map(s => (
-                            <div key={s.token} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: '#1a1a1a', borderRadius: '8px', padding: '10px 14px' }}>
-                                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#E24B4A', animation: 'pulse 1.5s infinite', flexShrink: 0 }} />
-                                <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontSize: '13px', fontWeight: '600' }}>{s.reporterName}</div>
-                                    <div style={{ fontSize: '11px', color: '#666', marginTop: '2px' }}>
-                                        {s.resolution} · {s.bitrate} kbps · {s.fps} fps ·
-                                        streaming for {formatDistance(new Date(s.startedAt), new Date(), { addSuffix: false })}
+                            <div key={s.token} className="stream-card">
+                                <span className="stream-dot" />
+                                <div className="stream-info">
+                                    <div className="stream-name">{s.reporterName}</div>
+                                    <div className="stream-meta">
+                                        {s.resolution} &middot; {s.bitrate} kbps &middot; {s.fps} fps &middot; {formatDistance(new Date(s.startedAt), new Date(), { addSuffix: false })}
                                     </div>
                                 </div>
-                                <button
-                                    onClick={() => setWatchStream(s)}
-                                    style={{ fontSize: '11px', padding: '5px 14px', background: 'rgba(226,75,74,0.15)', border: '1px solid rgba(226,75,74,0.5)', borderRadius: '6px', color: '#E24B4A', cursor: 'pointer', fontWeight: '600' }}
-                                >
-                                    Watch
-                                </button>
+                                <div className="stream-actions">
+                                    <button className="btn-sm btn-watch" onClick={() => setWatchStream(s)}>Watch</button>
+                                    <button
+                                        className="btn-sm btn-stop"
+                                        onClick={() => stopStream.mutate(s.streamId)}
+                                        disabled={stopStream.isPending}
+                                    >
+                                        {stopStream.isPending ? 'Stopping...' : 'Stop'}
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -85,8 +102,13 @@ export default function Dashboard() {
             )}
 
             {/* Token list */}
-            {isLoading ? <p style={{ color: '#888' }}>Loading...</p> : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div className="section-label">All Tokens</div>
+            {isLoading ? (
+                <div className="empty-state">Loading...</div>
+            ) : tokens.length === 0 ? (
+                <div className="empty-state">No tokens yet. Generate one first.</div>
+            ) : (
+                <div className="token-list">
                     {tokens.map(t => (
                         <TokenRow
                             key={t.id}
@@ -95,54 +117,61 @@ export default function Dashboard() {
                             streamInfo={streams.find(s => s.token === t.token)}
                             onRevoke={() => revoke.mutate(t.id)}
                             onWatch={(info) => setWatchStream(info)}
+                            onStop={(streamId) => stopStream.mutate(streamId)}
+                            isStopping={stopStream.isPending}
                         />
                     ))}
-                    {tokens.length === 0 && <p style={{ color: '#888', fontSize: '14px' }}>No tokens yet. Generate one first.</p>}
                 </div>
             )}
-            <div style={{ color: '#888', fontSize: '13px', marginTop: '28px', marginBottom: '28px' }}>Made with love By <a href="https://notrana.is-a.dev/">Asad</a></div>
+
+            <div className="footer-credit">Made with love by <a href="https://notrana.is-a.dev/">Asad</a></div>
 
             {/* Watch Modal */}
             {watchStream && (
-                <div
-                    onClick={() => setWatchStream(null)}
-                    style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
-                >
-                    <div
-                        onClick={e => e.stopPropagation()}
-                        style={{ background: '#111', border: '1px solid #333', borderRadius: '14px', padding: '24px', width: '100%', maxWidth: '600px' }}
-                    >
-                        {/* Modal header */}
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                <div className="modal-backdrop" onClick={() => setWatchStream(null)}>
+                    <div className="modal-content" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
                             <div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <span style={{ fontSize: '16px', fontWeight: '700' }}>{watchStream.reporterName}</span>
-                                    <span style={{ fontSize: '10px', fontWeight: '700', color: '#E24B4A', background: 'rgba(226,75,74,0.12)', border: '1px solid rgba(226,75,74,0.4)', borderRadius: '4px', padding: '1px 6px', animation: 'pulse 1.5s infinite' }}>● LIVE</span>
+                                <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    {watchStream.reporterName}
+                                    <span className="live-tag">● LIVE</span>
                                 </div>
-                                <div style={{ fontSize: '11px', color: '#666', marginTop: '4px' }}>
-                                    {watchStream.resolution} · {watchStream.bitrate} kbps · {watchStream.fps} fps
+                                <div className="modal-subtitle">
+                                    {watchStream.resolution} &middot; {watchStream.bitrate} kbps &middot; {watchStream.fps} fps
                                 </div>
                             </div>
-                            <button onClick={() => setWatchStream(null)} style={{ background: 'transparent', border: 'none', color: '#888', fontSize: '20px', cursor: 'pointer', lineHeight: 1 }}>✕</button>
+                            <button className="modal-close" onClick={() => setWatchStream(null)}>✕</button>
                         </div>
 
-                        {/* Stream Stats */}
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', marginBottom: '20px' }}>
+                        <div className="modal-stats">
                             {[
-                                ['Stream ID', watchStream.streamId],
-                                ['Started', formatDistanceToNow(new Date(watchStream.startedAt), { addSuffix: true })],
-                                ['Resolution', watchStream.resolution],
-                                ['Bitrate', `${watchStream.bitrate} kbps`],
-                            ].map(([label, val]) => (
-                                <div key={label} style={{ background: '#1a1a1a', border: '1px solid #222', borderRadius: '8px', padding: '10px 14px' }}>
-                                    <div style={{ fontSize: '10px', color: '#666', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</div>
-                                    <div style={{ fontSize: '13px', fontFamily: label === 'Stream ID' ? 'monospace' : 'inherit', wordBreak: 'break-all', color: '#ccc' }}>{val}</div>
+                                ['Stream ID', watchStream.streamId, true],
+                                ['Started', formatDistanceToNow(new Date(watchStream.startedAt), { addSuffix: true }), false],
+                                ['Resolution', watchStream.resolution, false],
+                                ['Bitrate', `${watchStream.bitrate} kbps`, false],
+                            ].map(([label, val, mono]) => (
+                                <div key={label as string} className="modal-stat">
+                                    <div className="modal-stat-label">{label}</div>
+                                    <div className={`modal-stat-value ${mono ? 'mono' : ''}`}>{val}</div>
                                 </div>
                             ))}
                         </div>
 
-                        <div style={{ background: 'rgba(96,165,250,0.05)', border: '1px solid rgba(96,165,250,0.2)', borderRadius: '8px', overflow: 'hidden' }}>
+                        <div className="modal-player">
                             <HlsPlayer streamId={watchStream.streamId} />
+                        </div>
+
+                        <div style={{ marginTop: '16px', display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                            <button
+                                className="btn-sm btn-stop"
+                                onClick={() => {
+                                    stopStream.mutate(watchStream.streamId);
+                                    setWatchStream(null);
+                                }}
+                            >
+                                Stop Stream
+                            </button>
+                            <button className="btn-sm" onClick={() => setWatchStream(null)}>Close</button>
                         </div>
                     </div>
                 </div>
@@ -175,7 +204,6 @@ function HlsPlayer({ streamId }: { streamId: string }) {
                 hls.destroy();
             };
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            // Safari fallback
             video.src = hlsUrl;
             video.addEventListener('loadedmetadata', () => {
                 video.play().catch(e => console.error('Play failed:', e));
@@ -183,25 +211,17 @@ function HlsPlayer({ streamId }: { streamId: string }) {
         }
     }, [streamId]);
 
-    return (
-        <div style={{ width: '100%', aspectRatio: '16/9', background: '#000' }}>
-            <video
-                ref={videoRef}
-                controls
-                autoPlay
-                muted
-                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-            />
-        </div>
-    );
+    return <video ref={videoRef} controls autoPlay muted />;
 }
 
-function TokenRow({ token, isLive, streamInfo, onRevoke, onWatch }: {
+function TokenRow({ token, isLive, streamInfo, onRevoke, onWatch, onStop, isStopping }: {
     token: TokenRecord;
     isLive: boolean;
     streamInfo?: ActiveStreamInfo;
     onRevoke: () => void;
     onWatch: (info: ActiveStreamInfo) => void;
+    onStop: (streamId: string) => void;
+    isStopping: boolean;
 }) {
     const canRevoke = token.status === 'ACTIVE';
     const [copied, setCopied] = useState(false);
@@ -223,47 +243,32 @@ function TokenRow({ token, isLive, streamInfo, onRevoke, onWatch }: {
     };
 
     return (
-        <div style={{ background: '#1a1a1a', border: `1px solid ${isLive ? '#E24B4A' : '#222'}`, borderRadius: '10px', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: STATUS_COLOR[token.status], flexShrink: 0 }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '14px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {token.reporterName}
-                    {isLive && (
-                        <span style={{ fontSize: '10px', fontWeight: '700', color: '#E24B4A', background: 'rgba(226,75,74,0.12)', border: '1px solid rgba(226,75,74,0.4)', borderRadius: '4px', padding: '1px 6px', letterSpacing: '0.06em', animation: 'pulse 1.5s infinite' }}>
-                            ● LIVE
-                        </span>
-                    )}
+        <div className={`token-card ${isLive ? 'is-live' : ''}`}>
+            <span className="token-dot" style={{ background: STATUS_COLOR[token.status] }} />
+            <div className="token-info">
+                <div className="token-name-row">
+                    <span className="token-name">{token.reporterName}</span>
+                    {isLive && <span className="live-tag">● LIVE</span>}
                 </div>
-                <div style={{ fontSize: '11px', color: '#666', marginTop: '2px' }}>
-                    {token.resolution} · {token.bitrate} kbps · {token.fps} fps · expires {formatDistanceToNow(new Date(token.expiresAt), { addSuffix: true })}
+                <div className="token-meta">
+                    {token.resolution} &middot; {token.bitrate} kbps &middot; {token.fps} fps &middot; expires {formatDistanceToNow(new Date(token.expiresAt), { addSuffix: true })}
                 </div>
-                <div style={{ fontSize: '10px', color: '#444', marginTop: '2px', fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {token.url}
-                </div>
+                <div className="token-url">{token.url}</div>
             </div>
-            <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+            <div className="token-actions">
                 {isLive && streamInfo && (
-                    <button onClick={() => onWatch(streamInfo)} style={{ ...smallBtn, borderColor: '#E24B4A', color: '#E24B4A' }}>
-                        Watch
-                    </button>
+                    <>
+                        <button className="btn-sm btn-watch" onClick={() => onWatch(streamInfo)}>Watch</button>
+                        <button className="btn-sm btn-stop" onClick={() => onStop(streamInfo.streamId)} disabled={isStopping}>Stop</button>
+                    </>
                 )}
-                <button onClick={copyUrl} disabled={isShortening} style={{ ...smallBtn, opacity: isShortening ? 0.5 : 1 }}>
-                    {isShortening ? 'Shortening...' : copied ? 'Copied!' : 'Copy'}
+                <button className="btn-sm btn-copy" onClick={copyUrl} disabled={isShortening}>
+                    {isShortening ? '...' : copied ? 'Copied!' : 'Copy'}
                 </button>
                 {canRevoke && (
-                    <button onClick={onRevoke} style={{ ...smallBtn, borderColor: '#E24B4A', color: '#E24B4A' }}>Revoke</button>
+                    <button className="btn-sm btn-revoke" onClick={onRevoke}>Revoke</button>
                 )}
             </div>
         </div>
     );
 }
-
-const smallBtn: React.CSSProperties = {
-    fontSize: '11px',
-    padding: '5px 12px',
-    background: 'transparent',
-    border: '1px solid #333',
-    borderRadius: '6px',
-    color: '#aaa',
-    cursor: 'pointer',
-};
