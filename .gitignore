@@ -1,6 +1,6 @@
 # Dependencies
 node_modules/
-
+backend/hls_output/
 # Environment files
 .env
 .env.*
@@ -26,3 +26,6 @@ dev.db
 *.db-journal
 
 ./docs
+backend/config.json
+backend/src/prisma/dev.db
+
