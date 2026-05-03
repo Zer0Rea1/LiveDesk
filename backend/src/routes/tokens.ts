@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { PrismaClient } from '@prisma/client';
 import { adminAuth } from '../middleware/adminAuth';
 import { getAppConfig } from '../config';
-import { getActiveStreamTokens, getActiveStreams } from '../ws/srtBridge';
+import { getActiveStreamTokens, getActiveStreams, killStream } from '../ws/srtBridge';
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -73,6 +73,17 @@ router.post('/shorten', adminAuth, async (req: Request, res: Response): Promise<
     } catch (e: any) {
         res.status(500).json({ error: 'Failed to shorten URL: ' + e.message });
     }
+});
+
+// POST /api/tokens/stop-stream — admin kills an active stream
+router.post('/stop-stream', adminAuth, (req: Request, res: Response): any => {
+    const { streamId } = req.body;
+    if (!streamId) return res.status(400).json({ error: 'Missing streamId' });
+
+    const killed = killStream(streamId);
+    if (!killed) return res.status(404).json({ error: 'Stream not found or already ended' });
+
+    res.json({ success: true });
 });
 
 // GET /api/tokens/active — returns rich info on currently live streams

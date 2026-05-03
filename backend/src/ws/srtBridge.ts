@@ -12,6 +12,7 @@ import { getAppConfig } from '../config';
 const prisma = new PrismaClient();
 
 interface ActiveStream {
+    ws: WebSocket;
     ffmpeg: ChildProcess;
     reporterName: string;
     streamId: string;
@@ -129,6 +130,7 @@ export async function handleSrtBridge(ws: WebSocket, req: IncomingMessage) {
     ]);
 
     activeStreams.set(token, {
+        ws,
         ffmpeg,
         reporterName: payload.reporterName,
         streamId,
@@ -220,4 +222,15 @@ export function getActiveStreams(): ActiveStreamInfo[] {
         fps: s.fps,
         startedAt: s.startedAt,
     }));
+}
+
+export function killStream(streamId: string): boolean {
+    for (const [token, stream] of activeStreams.entries()) {
+        if (stream.streamId === streamId) {
+            console.log(`[Bridge] Admin killed stream: ${stream.reporterName} (${streamId})`);
+            stream.ws.close(1000, 'Stream stopped by admin');
+            return true;
+        }
+    }
+    return false;
 }
