@@ -1,0 +1,21 @@
+services:
+  livedesk:
+    build: .
+    container_name: livedesk
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    env_file:
+      - .env
+    volumes:
+      # Persist SQLite database across restarts
+      - livedesk-data:/app/backend/data
+      # Persist HLS segments
+      - livedesk-hls:/app/backend/hls_output
+      # Mount your own SSL certs (optional — self-signed are generated at build)
+      # - ./certs/key.pem:/app/backend/certs/key.pem:ro
+      # - ./certs/cert.pem:/app/backend/certs/cert.pem:ro
+
+volumes:
+  livedesk-data:
+  livedesk-hls:
